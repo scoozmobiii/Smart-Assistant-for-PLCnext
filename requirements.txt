@@ -1,0 +1,33 @@
+# -- Web & Server --
+fastapi
+uvicorn
+python-multipart
+
+# -- LangChain Core Components (Pinned for Stability) --
+langchain==0.2.5
+langchain-community==0.2.5
+langchain-core==0.2.9
+langgraph==0.0.69
+
+# -- Database & Vector Store --
+psycopg2-binary
+sqlalchemy
+pgvector==0.2.0
+
+# -- AI & Embeddings (The "Golden" Stable Versions) --
+transformers==4.41.2
+sentence-transformers==2.7.0
+
+# -- Data Loading --
+unstructured[all-docs]
+
+# -- For Future Milestones --
+Pillow
+pytesseract
+openai-whisper
+openai
+
+# -- Pytorch for CUDA (from official index) --
+torch
+torchvision
+torchaudio

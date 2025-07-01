@@ -1,0 +1,22 @@
+# Python Virtual Environment
+venv/
+
+# Node.js Dependencies
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Log files
+*.log
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS-specific files
+.DS_Store
