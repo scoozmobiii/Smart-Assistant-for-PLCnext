@@ -6,17 +6,12 @@ from langchain_community.vectorstores.pgvector import PGVector
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# --- การตั้งค่าพื้นฐาน ---
-# ตั้งค่าการเชื่อมต่อกับฐานข้อมูล PostgreSQL ที่รันบน Docker
 CONNECTION_STRING = "postgresql+psycopg2://admin:admin@localhost:5432/plcnext_data"
 
-# ชื่อ Collection หรือตารางที่จะใช้เก็บข้อมูลใน pgvector
 COLLECTION_NAME = "plcnext_documents"
 
-# [FIXED] ระบุโมเดลสำหรับสร้าง Embedding ให้ถูกต้อง (ต้องระบุชื่อเต็ม)
 EMBEDDING_MODEL = "BAAI/bge-m3"
 
-# ที่อยู่ของโฟลเดอร์ที่เก็บเอกสารของเรา
 DATA_PATH = "data"
 
 def main():
@@ -48,17 +43,15 @@ def main():
     print("ขั้นตอนนี้อาจใช้เวลานานขึ้นอยู่กับจำนวนข้อมูลและประสิทธิภาพของเครื่อง...")
 
     # สร้าง Embeddings model
-    # 'cuda' สำหรับ NVIDIA GPU, 'cpu' ถ้าไม่มี GPU
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={'device': 'cuda'})
 
-    # ทำการล้างข้อมูลเก่าใน collection (ถ้ามี) และสร้างใหม่
-    # โดยใช้ from_documents เพื่อสร้างและเก็บข้อมูลในครั้งเดียว
+    # ทำการล้างข้อมูลเก่าใน collection (ถ้ามี) และสร้างใหม่ โดยใช้ from_documents เพื่อสร้างและเก็บข้อมูลในครั้งเดียว
     PGVector.from_documents(
         documents=chunks,
         embedding=embeddings,
         collection_name=COLLECTION_NAME,
         connection_string=CONNECTION_STRING,
-        pre_delete_collection=True, # ลบ collection เก่าก่อนถ้ามี
+        pre_delete_collection=True,
     )
 
     print("--- กระบวนการป้อนข้อมูลเสร็จสิ้นสมบูรณ์! ---")
