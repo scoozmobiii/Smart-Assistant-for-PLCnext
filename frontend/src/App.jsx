@@ -7,10 +7,7 @@ import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 const CodeBlock = ({ language, value }) => {
     const [isCopied, setIsCopied] = useState(false);
-    const handleCopy = () => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-    };
+    const handleCopy = () => { setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); };
     return (
         <div className="relative my-2 text-sm font-mono">
             <div className="flex items-center justify-between bg-gray-200 text-gray-600 px-4 py-1.5 rounded-t-md">
@@ -18,7 +15,7 @@ const CodeBlock = ({ language, value }) => {
                 <CopyToClipboard text={value} onCopy={handleCopy}>
                     <button className="flex items-center gap-1.5 text-xs hover:text-gray-900 transition-colors">
                         {isCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                        {isCopied ? 'คัดลอกแล้ว!' : 'คัดลอกโค้ด'}
+                        {isCopied ? 'Copied!' : 'Copy code'}
                     </button>
                 </CopyToClipboard>
             </div>
@@ -28,7 +25,6 @@ const CodeBlock = ({ language, value }) => {
         </div>
     );
 };
-
 const MessageContent = ({ text }) => {
     const codeBlockRegex = /```(\w+)?\n([\s\S]+?)\n```/g;
     const parts = text.split(codeBlockRegex);
@@ -46,7 +42,6 @@ const MessageContent = ({ text }) => {
         </div>
     );
 };
-
 const Message = ({ text, sender }) => {
     const isUser = sender === 'user';
     return (
@@ -63,7 +58,7 @@ const Message = ({ text, sender }) => {
 
 function App() {
     const [messages, setMessages] = useState([
-        { text: 'สวัสดีครับ ผมคือ Panya ผู้ช่วย AI สำหรับ PLCnext มีอะไรให้ช่วยเหลือไหมครับ', sender: 'bot' },
+        { text: 'Hello! I am Panya, your AI assistant for PLCnext. How can I help you today?', sender: 'bot' },
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -87,8 +82,8 @@ function App() {
             const botMessage = { text: response.data.answer, sender: 'bot' };
             setMessages(prev => [...prev, botMessage]);
         } catch (error) {
-            console.error("เกิดข้อผิดพลาดในการเชื่อมต่อ: ", error);
-            const errorMessage = { text: 'ขออภัยครับ เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์', sender: 'bot' };
+            console.error("Connection Error: ", error);
+            const errorMessage = { text: 'Sorry, there was an error connecting to the server.', sender: 'bot' };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
@@ -96,39 +91,26 @@ function App() {
     };
 
     const handleFeatureNotImplemented = () => {
-        alert('ฟีเจอร์นี้ยังไม่เปิดใช้งาน');
+        alert('This feature is not yet implemented.');
     };
 
     return (
         <div className="flex h-screen bg-white text-gray-800 font-sans">
             <aside className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-72 p-4' : 'w-0 p-0'}`}>
                 <div className={`flex-shrink-0 mb-6 flex items-center gap-3 overflow-hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="bg-blue-500 text-white p-2 rounded-lg">
-                        <BrainCircuit size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900">Panya</h1>
-                    </div>
+                    <div className="bg-blue-500 text-white p-2 rounded-lg"><BrainCircuit size={24} /></div>
+                    <div><h1 className="text-xl font-bold text-gray-900">Panya</h1></div>
                 </div>
                 <div className={`overflow-hidden transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold">
-                        <Plus size={16} />
-                        New Chat
-                    </button>
-                    <div className="flex-1 overflow-y-auto">
-                        {/* History placeholder */}
-                    </div>
-                    <div className="absolute bottom-4 left-4 text-xs text-gray-400">
-                        &copy; 2025 Panya
-                    </div>
+                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold"><Plus size={16} />New Chat</button>
+                    <div className="flex-1 overflow-y-auto"></div>
+                    <div className="absolute bottom-4 left-4 text-xs text-gray-400">&copy; 2025 Panya</div>
                 </div>
             </aside>
 
             <div className="flex-1 flex flex-col bg-gray-100">
                 <header className="flex items-center p-2 bg-white border-b border-gray-200">
-                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">
-                        <PanelLeft size={20} />
-                    </button>
+                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"><PanelLeft size={20} /></button>
                     <h2 className="ml-2 font-semibold text-gray-700">Smart Assistant for PLCnext</h2>
                 </header>
 
@@ -162,7 +144,7 @@ function App() {
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder="ถามคำถามเกี่ยวกับ PLCnext..."
+                                placeholder="Ask a question about PLCnext..."
                                 className="flex-1 bg-transparent focus:outline-none px-2 text-gray-800 placeholder-gray-500"
                                 disabled={isLoading}
                             />
