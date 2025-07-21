@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, Paperclip, Mic, Bot, User, Plus, Copy, Check, PanelLeft } from 'lucide-react';
+import { Send, Paperclip, Mic, Bot, User, Plus, Copy, Check, PanelLeft, XCircle } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 
+// --- Components ย่อย (Sub-components) ---
+
 const CodeBlock = ({ language, value }) => {
     const [isCopied, setIsCopied] = useState(false);
-    const handleCopy = () => { setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); };
+    const handleCopy = () => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    };
     return (
         <div className="relative my-2 text-sm font-mono">
             <div className="flex items-center justify-between bg-gray-200 text-gray-600 px-4 py-1.5 rounded-t-md">
@@ -15,7 +20,7 @@ const CodeBlock = ({ language, value }) => {
                 <CopyToClipboard text={value} onCopy={handleCopy}>
                     <button className="flex items-center gap-1.5 text-xs hover:text-gray-900 transition-colors">
                         {isCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                        {isCopied ? 'คัดลอกแล้ว!' : 'คัดลอกโค้ด'}
+                        {isCopied ? 'Copied!' : 'Copy code'}
                     </button>
                 </CopyToClipboard>
             </div>
@@ -36,7 +41,8 @@ const MessageContent = ({ text }) => {
                     const language = parts[index - 1] || 'plaintext';
                     return <CodeBlock key={index} language={language} value={part.trim()} />;
                 } else if (index % 3 === 0) {
-                    return <p key={index} className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br />') }}></p>;
+                    const boldedText = part.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    return <p key={index} className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: boldedText.replace(/\n/g, '<br />') }}></p>;
                 }
                 return null;
             })}
@@ -44,7 +50,7 @@ const MessageContent = ({ text }) => {
     );
 };
 
-const Message = ({ text, sender }) => {
+const Message = ({ text, sender, image }) => {
     const isUser = sender === 'user';
     return (
         <div className={`flex items-start gap-3 ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
@@ -52,12 +58,15 @@ const Message = ({ text, sender }) => {
                 {isUser ? <User size={20} /> : <Bot size={20} />}
             </div>
             <div className={`max-w-2xl px-5 py-3 rounded-xl shadow-sm break-words ${isUser ? 'bg-blue-500 text-white order-1' : 'bg-white text-gray-800 border'}`}>
-                <MessageContent text={text} />
+                {image && <img src={image} alt="Uploaded content" className="max-w-xs rounded-lg mb-2 border" />}
+                {text && <MessageContent text={text} />}
             </div>
         </div>
     );
 };
 
+
+// --- Component หลักของ App ---
 function App() {
     const [messages, setMessages] = useState([
         { text: 'Hello! I am Panya, your AI assistant for PLCnext. How can I help you today?', sender: 'bot' },
@@ -65,7 +74,11 @@ function App() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    
     const chatEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -73,65 +86,88 @@ function App() {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!input.trim() || isLoading) return;
-        const userMessage = { text: input, sender: 'user' };
+        if ((!input.trim() && !selectedFile) || isLoading) return;
+
+        setIsLoading(true);
+
+        let userMessage;
+        let apiUrl;
+        let payload;
+        let headers = {};
+        let errorType = 'connecting to the server';
+
+        if (selectedFile) {
+            userMessage = { text: input, sender: 'user', image: previewUrl };
+            apiUrl = 'http://localhost:8000/chat/image';
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('query', input);
+            payload = formData;
+            headers = { 'Content-Type': 'multipart/form-data' };
+            errorType = 'processing the image';
+        } else {
+            userMessage = { text: input, sender: 'user' };
+            apiUrl = 'http://localhost:8000/chat/text';
+            payload = { query: input };
+        }
+
         setMessages(prev => [...prev, userMessage]);
         setInput('');
-        setIsLoading(true);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+
         try {
-            const API_URL = 'http://localhost:8000/chat/text';
-            const response = await axios.post(API_URL, { query: input });
+            const response = await axios.post(apiUrl, payload, { headers });
             const botMessage = { text: response.data.answer, sender: 'bot' };
             setMessages(prev => [...prev, botMessage]);
         } catch (error) {
-            console.error("Connection Error: ", error);
-            const errorMessage = { text: 'Sorry, there was an error connecting to the server.', sender: 'bot' };
+            console.error("API Error: ", error);
+            const errorMessage = { text: `Sorry, there was an error ${errorType}.`, sender: 'bot' };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleFeatureNotImplemented = () => {
-        alert('This feature is not yet implemented.');
+    const handleFileSelect = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        setSelectedFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
+        event.target.value = null;
     };
+
+    const cancelFileSelection = () => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+    };
+
+    const handleMicNotImplemented = () => { alert('This feature is not yet implemented.'); };
 
     return (
         <div className="flex h-screen bg-white text-gray-800 font-sans">
             <aside className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-72 p-4' : 'w-0 p-0'}`}>
                 <div className={`flex-shrink-0 mb-6 flex items-center gap-3 overflow-hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <img 
-                        src="/panya-logo.svg" 
-                        alt="Panya Logo" 
-                        className="w-10 h-10 rounded-full object-cover" 
-                    />
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900">Panya</h1>
-                    </div>
+                    <img src="/panya-logo.png" alt="Panya Logo" className="w-10 h-10 rounded-full object-cover" />
+                    <div><h1 className="text-xl font-bold text-gray-900">Panya</h1></div>
                 </div>
                 <div className={`overflow-hidden transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold">
-                        <Plus size={16} />
-                        New Chat
-                    </button>
-                    <div className="flex-1 overflow-y-auto">
-                        {/* History placeholder */}
-                    </div>
+                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold"><Plus size={16} />New Chat</button>
+                    <div className="flex-1 overflow-y-auto"></div>
+                    <div className="absolute bottom-4 left-4 text-xs text-gray-400">&copy; 2025 Panya</div>
                 </div>
             </aside>
 
             <div className="flex-1 flex flex-col bg-gray-100">
                 <header className="flex items-center p-2 bg-white border-b border-gray-200">
-                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">
-                        <PanelLeft size={20} />
-                    </button>
+                    <button onClick={() => setIsSidebarOpen(prev => !prev)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"><PanelLeft size={20} /></button>
                     <h2 className="ml-2 font-semibold text-gray-700">Smart Assistant for PLCnext</h2>
                 </header>
 
                 <main className="flex-1 p-6 overflow-y-auto">
                     <div className="max-w-4xl mx-auto">
                         {messages.map((msg, index) => (
-                            <Message key={index} text={msg.text} sender={msg.sender} />
+                            <Message key={index} text={msg.text} sender={msg.sender} image={msg.image} />
                         ))}
                         {isLoading && (
                             <div className="flex items-start gap-3 justify-start mb-6">
@@ -151,19 +187,39 @@ function App() {
                 
                 <footer className="p-4 bg-gray-100/80 backdrop-blur-sm">
                     <div className="max-w-4xl mx-auto">
-                        <form onSubmit={handleSendMessage} className="flex items-center space-x-2 bg-white border border-gray-300 rounded-full p-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-400 transition-all">
-                            <button type="button" onClick={handleFeatureNotImplemented} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="Attach file"><Paperclip size={20} /></button>
-                            <button type="button" onClick={handleFeatureNotImplemented} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="Use microphone"><Mic size={20} /></button>
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Ask a question about PLCnext..."
-                                className="flex-1 bg-transparent focus:outline-none px-2 text-gray-800 placeholder-gray-500"
-                                disabled={isLoading}
-                            />
-                            <button type="submit" className="bg-blue-500 text-white p-2.5 rounded-full font-semibold hover:bg-blue-600 transition-colors shadow-sm disabled:bg-blue-300 disabled:cursor-not-allowed flex-shrink-0" disabled={isLoading || !input.trim()} aria-label="Send message"><Send size={20} /></button>
-                        </form>
+                        <div className={`bg-white border border-gray-300 shadow-sm focus-within:ring-2 focus-within:ring-blue-400 ${previewUrl ? 'rounded-2xl' : 'rounded-full'}`}>
+                            <form onSubmit={handleSendMessage} className="p-2">
+                                {/* [ปรับปรุง] เอาอนิเมชั่นออก แสดงผลทันที */}
+                                {previewUrl && (
+                                    <div className="relative w-28 h-28 m-2 p-1 border rounded-lg bg-gray-100">
+                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-contain rounded-md" />
+                                        <button onClick={cancelFileSelection} className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full p-0.5 hover:bg-red-500">
+                                            <XCircle size={20} />
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="flex items-center space-x-2">
+                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
+                                    <button type="button" onClick={() => fileInputRef.current.click()} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full" aria-label="Attach file" disabled={isLoading}><Paperclip size={20} /></button>
+                                    <button type="button" onClick={handleMicNotImplemented} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full" aria-label="Use microphone" disabled={isLoading}><Mic size={20} /></button>
+                                    <input
+                                        type="text"
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSendMessage(e);
+                                            }
+                                        }}
+                                        placeholder="Ask a question..."
+                                        className="flex-1 bg-transparent focus:outline-none px-2 text-gray-800 placeholder-gray-500"
+                                        disabled={isLoading}
+                                    />
+                                    <button type="submit" className="bg-blue-500 text-white p-2.5 rounded-full font-semibold hover:bg-blue-600 shadow-sm disabled:bg-blue-300 disabled:cursor-not-allowed flex-shrink-0" disabled={isLoading || (!input.trim() && !selectedFile)} aria-label="Send message"><Send size={20} /></button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </footer>
             </div>

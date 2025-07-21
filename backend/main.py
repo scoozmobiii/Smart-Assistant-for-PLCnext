@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from pydantic import BaseModel
 from langchain_community.vectorstores.pgvector import PGVector
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -12,6 +12,7 @@ import os
 import pytesseract
 from PIL import Image
 
+# --- การตั้งค่าพื้นฐาน (เหมือนเดิม) ---
 try:
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 except Exception as e:
@@ -25,7 +26,7 @@ LLM_MODEL = "llama3"
 app = FastAPI(
     title="Panya AI Assistant API",
     description="API for Panya, the AI assistant for PLCnext",
-    version="1.4.0" 
+    version="1.6.0" # อัปเดตเวอร์ชัน
 )
 origins = ["*"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -33,9 +34,9 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL, model_kwargs={'device': 'cuda'})
 vectorstore = PGVector(connection_string=CONNECTION_STRING, collection_name=COLLECTION_NAME, embedding_function=embeddings)
 retriever = vectorstore.as_retriever()
-
 llm = ChatOllama(model=LLM_MODEL, temperature=0.1)
 
+# --- RAG Chain (เหมือนเดิม) ---
 answer_template = """
 You are a highly precise technical assistant for PLCnext. Your sole purpose is to answer questions by extracting information directly from the provided context.
 Follow these rules strictly:
@@ -53,38 +54,21 @@ Question:
 Strict Answer based ONLY on the context:
 """
 answer_prompt = ChatPromptTemplate.from_template(answer_template)
-answer_chain = (
-    answer_prompt
-    | llm
-    | StrOutputParser()
-)
+answer_chain = (answer_prompt | llm | StrOutputParser())
 
-# Chain สำหรับการประเมินความเกี่ยวข้อง ---
 relevance_template = """
 Based on the provided Question and Context, is the information in the Context sufficient to answer the Question?
 Respond with a single JSON object containing one key "is_relevant" with a value of either "yes" or "no".
-
-<Context>
-{context}
-</Context>
-
-<Question>
-{question}
-</Question>
+<Context>{context}</Context>
+<Question>{question}</Question>
 """
 relevance_prompt = ChatPromptTemplate.from_template(relevance_template)
-relevance_chain = (
-    relevance_prompt
-    | llm
-    | JsonOutputParser()
-)
+relevance_chain = (relevance_prompt | llm | JsonOutputParser())
 
-# Chain สำหรับกรณีที่ข้อมูลไม่เกี่ยวข้อง ---
 def create_fallback_response(input_dict):
     return "I'm sorry, but I couldn't find any relevant information for this question in my knowledge base."
 fallback_chain = RunnableLambda(create_fallback_response)
 
-# สร้าง Chain หลักที่รวมทุกอย่างเข้าด้วยกัน---
 def retrieve_context(input_dict):
     question = input_dict["question"]
     retrieved_docs = retriever.invoke(question)
@@ -103,6 +87,7 @@ full_rag_chain = (
     | branch
 )
 
+# --- API Endpoints ---
 class ChatRequest(BaseModel):
     query: str
 
@@ -115,8 +100,9 @@ def chat_with_rag(request: ChatRequest):
     response_text = full_rag_chain.invoke(request.query)
     return {"answer": response_text}
 
+# [ปรับปรุง] Endpoint สำหรับรูปภาพ ให้รับข้อความ (query) มาด้วยได้
 @app.post("/chat/image")
-async def chat_with_image(file: UploadFile = File(...)):
+async def chat_with_image(file: UploadFile = File(...), query: str = Form("")):
     temp_file_path = f"temp_{file.filename}"
     try:
         with open(temp_file_path, "wb") as buffer:
@@ -127,14 +113,23 @@ async def chat_with_image(file: UploadFile = File(...)):
         if not extracted_text.strip():
             return {"answer": "I'm sorry, I couldn't extract any text from the provided image."}
 
-        response_text = full_rag_chain.invoke(extracted_text)
+        # สร้าง "คำถามสุดท้าย" ที่จะส่งให้ RAG chain
+        # ถ้าผู้ใช้พิมพ์คำถามมาด้วย ให้ใช้คำถามนั้นเป็นหลัก
+        if query and query.strip():
+            final_question = f"Regarding the following text extracted from an image: '{extracted_text.strip()}', the user asks: '{query.strip()}'"
+        else: # ถ้าผู้ใช้ไม่ได้พิมพ์อะไรมา ให้ใช้ข้อความจากรูปเป็นคำถามเลย
+            final_question = extracted_text.strip()
+
+        response_text = full_rag_chain.invoke(final_question)
         
+        # สร้างคำตอบที่เป็นมิตรมากขึ้น
         fallback_msg = "I'm sorry, but I couldn't find any relevant information"
         if fallback_msg not in response_text:
-            final_answer = f"Based on the text I extracted from the image:\n---\n**{extracted_text.strip()}**\n---\n\n{response_text}"
+            final_answer = f"Based on the text from the image and your question, here is what I found:\n\n{response_text}"
             return {"answer": final_answer}
         else:
-            return {"answer": response_text}
+            final_answer = f"I read the following text from the image: **{extracted_text.strip()}**\n\nHowever, I couldn't find any relevant information about it in my knowledge base."
+            return {"answer": final_answer}
 
     except Exception as e:
         print(f"Error processing image: {e}")
