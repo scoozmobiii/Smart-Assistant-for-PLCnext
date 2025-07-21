@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Send, Paperclip, Mic, Bot, User, Plus, Copy, Check, PanelLeft, BrainCircuit } from 'lucide-react';
+import { Send, Paperclip, Mic, Bot, User, Plus, Copy, Check, PanelLeft } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
@@ -15,7 +15,7 @@ const CodeBlock = ({ language, value }) => {
                 <CopyToClipboard text={value} onCopy={handleCopy}>
                     <button className="flex items-center gap-1.5 text-xs hover:text-gray-900 transition-colors">
                         {isCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                        {isCopied ? 'Copied!' : 'Copy code'}
+                        {isCopied ? 'คัดลอกแล้ว!' : 'คัดลอกโค้ด'}
                     </button>
                 </CopyToClipboard>
             </div>
@@ -25,6 +25,7 @@ const CodeBlock = ({ language, value }) => {
         </div>
     );
 };
+
 const MessageContent = ({ text }) => {
     const codeBlockRegex = /```(\w+)?\n([\s\S]+?)\n```/g;
     const parts = text.split(codeBlockRegex);
@@ -42,6 +43,7 @@ const MessageContent = ({ text }) => {
         </div>
     );
 };
+
 const Message = ({ text, sender }) => {
     const isUser = sender === 'user';
     return (
@@ -98,19 +100,31 @@ function App() {
         <div className="flex h-screen bg-white text-gray-800 font-sans">
             <aside className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-72 p-4' : 'w-0 p-0'}`}>
                 <div className={`flex-shrink-0 mb-6 flex items-center gap-3 overflow-hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="bg-blue-500 text-white p-2 rounded-lg"><BrainCircuit size={24} /></div>
-                    <div><h1 className="text-xl font-bold text-gray-900">Panya</h1></div>
+                    <img 
+                        src="/panya-logo.svg" 
+                        alt="Panya Logo" 
+                        className="w-10 h-10 rounded-full object-cover" 
+                    />
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-900">Panya</h1>
+                    </div>
                 </div>
                 <div className={`overflow-hidden transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold"><Plus size={16} />New Chat</button>
-                    <div className="flex-1 overflow-y-auto"></div>
-                    <div className="absolute bottom-4 left-4 text-xs text-gray-400">&copy; 2025 Panya</div>
+                    <button className="flex items-center justify-center gap-2 w-full p-2.5 mb-4 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors text-sm font-semibold">
+                        <Plus size={16} />
+                        New Chat
+                    </button>
+                    <div className="flex-1 overflow-y-auto">
+                        {/* History placeholder */}
+                    </div>
                 </div>
             </aside>
 
             <div className="flex-1 flex flex-col bg-gray-100">
                 <header className="flex items-center p-2 bg-white border-b border-gray-200">
-                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"><PanelLeft size={20} /></button>
+                    <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">
+                        <PanelLeft size={20} />
+                    </button>
                     <h2 className="ml-2 font-semibold text-gray-700">Smart Assistant for PLCnext</h2>
                 </header>
 
